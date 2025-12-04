@@ -23,7 +23,7 @@ mod test {
         let mut input = io::input::Input::slice(test.as_bytes());
         let mut obuf: Vec<u8> = vec![];
         let mut output = io::output::Output::buf(&mut obuf);
-        super::solve_2(&mut input, &mut output);
+        super::solve_3(&mut input, &mut output);
         output.flush();
 
         let mut input = io::input::Input::slice(&obuf);
@@ -36,6 +36,36 @@ mod test {
 use crate::io::input::*;
 use crate::io::output::*;
 use crate::io::string::str::StrReader;
+
+fn solve_3(is: &mut Input, os: &mut Output) {
+    let mut count = 0;
+    loop {
+        let line = String::from_utf8(is.read_str().to_vec()).unwrap();
+        if line.is_empty() {
+            break;
+        }
+
+        let s = line.as_str();
+        let mut stack = vec![];
+        s.chars().enumerate().for_each(|(idx, c)| {
+            let d = (c as u8 - b'0') as u64;
+
+            if !stack.is_empty() && d > stack[stack.len() - 1] && s[idx..].len() > 12 - stack.len()
+            {
+                stack.pop();
+            }
+
+            if stack.len() < 12 {
+                stack.push(d);
+            }
+        });
+        count += stack.iter().enumerate().fold(0, |acc, (idx, &x)| {
+            acc + x * u64::pow(10, (11 - idx) as u32)
+        });
+    }
+
+    os.print_line(count);
+}
 
 fn solve_2(is: &mut Input, os: &mut Output) {
     let mut count = 0;
