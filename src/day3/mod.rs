@@ -1,20 +1,12 @@
-use std::error::Error;
-use std::io::BufRead;
-use std::isize;
+#[cfg(test)]
+mod test {
 
-use crate::io::input::*;
-use crate::io::output::*;
-use crate::io::string::str::StrReader;
+    use crate::io;
 
-mod day0;
-mod day1;
-mod day2;
-mod day3;
-mod io;
-
-fn main() {
-    //let test = "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124";
-    let test = "..@@.@@@@.
+    #[test]
+    fn test() {
+        //let test = "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124";
+        let test = "..@@.@@@@.
 @@@.@.@.@@
 @@@@@.@.@@
 @.@@@@..@.
@@ -24,14 +16,32 @@ fn main() {
 @.@@@.@@@@
 .@@@@@@@@.
 @.@.@@@.@.";
-    //let mut input = io::input::Input::slice(test.as_bytes());
-    let mut input = io::input::Input::stdin(); //slice(test.as_bytes());
-    let mut output = io::output::Output::stdout();
+        let mut input = io::input::Input::slice(test.as_bytes());
+        let mut obuf: Vec<u8> = vec![];
+        let mut output = io::output::Output::buf(&mut obuf);
+        super::solve_1(&mut input, &mut output);
+        output.flush();
 
-    //solve_1(&mut input, &mut output); // 357
-    solve_1(&mut input, &mut output); // 3121910778619
-    output.flush();
+        let mut input = io::input::Input::slice(&obuf);
+        let count = input.read_u64();
+        assert_eq!(13, count);
+
+        let mut input = io::input::Input::slice(test.as_bytes());
+        let mut obuf: Vec<u8> = vec![];
+        let mut output = io::output::Output::buf(&mut obuf);
+        super::solve_2(&mut input, &mut output);
+        output.flush();
+
+        let mut input = io::input::Input::slice(&obuf);
+
+        let count = input.read_u64();
+        assert_eq!(43, count);
+    }
 }
+
+use crate::io::input::*;
+use crate::io::output::*;
+use crate::io::string::str::StrReader;
 
 struct NeighborIter<'a, T> {
     graph: &'a Vec<Vec<T>>,
@@ -84,6 +94,52 @@ impl<T: Copy> Iterator for NeighborIter<'_, T> {
 }
 
 fn solve_1(is: &mut Input, os: &mut Output) {
+    let mut grid: Vec<Vec<u32>> = vec![];
+
+    // build grid
+    loop {
+        let line = String::from_utf8(is.read_str().to_vec()).unwrap();
+        if line.is_empty() {
+            break;
+        }
+
+        let row = line
+            .chars()
+            .into_iter()
+            .map(|c| match c {
+                '.' => 0,
+                '@' => 1,
+                _ => 0,
+            })
+            .collect();
+        grid.push(row);
+    }
+
+    let mut count = 0;
+    for y in 0..grid.len() {
+        for x in 0..grid[y].len() {
+            let p = (y, x);
+            let mut ncount = 0;
+            if grid[y][x] == 0 {
+                print!(".");
+                continue;
+            }
+            for val in NeighborIter::new(p, &grid) {
+                ncount += val;
+            }
+            if ncount < 4 {
+                print!("x");
+                count += 1;
+            } else {
+                print!("@");
+            }
+        }
+        println!();
+    }
+    os.print_line(count);
+}
+
+fn solve_2(is: &mut Input, os: &mut Output) {
     let mut grid: Vec<Vec<u32>> = vec![];
 
     // build grid
