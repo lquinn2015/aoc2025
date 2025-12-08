@@ -1,35 +1,39 @@
-use crate::io::input::*;
-use crate::io::output::*;
-use crate::io::string::str::StrReader;
+#[cfg(test)]
+mod tests {
+    use crate::io;
 
-mod day0;
-mod day1;
-mod day2;
-mod day3;
-mod day4;
-mod day5;
-mod io;
-
-fn main() {
-    //let test = "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124";
-    let test = "123 328  51 64 
+    #[test]
+    fn test() {
+        let test = "123 328  51 64 
  45 64  387 23 
   6 98  215 314
 *   +   *   +  ";
-    //let mut input = io::input::Input::slice(test.as_bytes());
-    let mut input = io::input::Input::stdin(); //slice(test.as_bytes());
-    let mut output = io::output::Output::stdout();
+        let mut input = io::input::Input::slice(test.as_bytes());
+        let mut obuf: Vec<u8> = vec![];
+        let mut output = io::output::Output::buf(&mut obuf);
+        super::solve_1(&mut input, &mut output);
+        output.flush();
 
-    solve_1(&mut input, &mut output); // 357
-                                      //solve_2(&mut input, &mut output); // 3121910778619
-    output.flush();
+        let mut input = io::input::Input::slice(&obuf);
+        let count = input.read_i128();
+        assert_eq!(4277556, count);
+
+        let mut input = io::input::Input::slice(test.as_bytes());
+        let mut obuf: Vec<u8> = vec![];
+        let mut output = io::output::Output::buf(&mut obuf);
+        super::solve_2(&mut input, &mut output);
+        output.flush();
+
+        let mut input = io::input::Input::slice(&obuf);
+
+        let count = input.read_i128();
+        assert_eq!(3263827, count);
+    }
 }
 
-fn convert_line(line: String) -> Vec<i128> {
-    line.split_whitespace()
-        .map(|s| i128::from_str_radix(s, 10).unwrap())
-        .collect()
-}
+use crate::io::input::*;
+use crate::io::output::*;
+use crate::io::string::str::StrReader;
 
 fn get_dpc(ops: &String) -> Vec<usize> {
     let mut dpc = vec![];
@@ -71,15 +75,9 @@ fn parse_nums(lines: Vec<String>, dpc: &Vec<usize>, ops_s: Vec<String>) -> i128 
         grid.push(arr);
     }
 
-    let rows = grid.len();
-    let cols = grid[0].len();
-
-    println!("grid: {grid:?}");
-
     let mut total = 0;
     for ((row, dp), op) in dpc.iter().enumerate().zip(ops_s) {
         let row = &grid[row];
-        println!("row {row:?}");
         let mut nums = vec![0; *dp];
         row.iter().for_each(|s| {
             s.chars().enumerate().for_each(|(idx, c)| {
@@ -93,8 +91,6 @@ fn parse_nums(lines: Vec<String>, dpc: &Vec<usize>, ops_s: Vec<String>) -> i128 
             });
         });
 
-        println!("row_nums: {nums:?}");
-
         let op = match op.chars().next() {
             Some('+') => |a, b| a + b,
             Some('*') => |a, b| a * b,
@@ -102,7 +98,6 @@ fn parse_nums(lines: Vec<String>, dpc: &Vec<usize>, ops_s: Vec<String>) -> i128 
         };
 
         let row_total = nums.iter().skip(1).fold(nums[0], |acc, v| op(acc, *v));
-        println!("Row total: {row_total}");
         total += row_total;
     }
 
@@ -143,8 +138,6 @@ fn solve_1(is: &mut Input, os: &mut Output) {
         })
         .collect();
 
-    println!("{nums:?}");
-
     let total = ops_s
         .split_whitespace()
         .enumerate()
@@ -159,7 +152,6 @@ fn solve_1(is: &mut Input, os: &mut Output) {
             for i in 1..nums.len() {
                 x = op(x, nums[i][idx]);
             }
-            println!("Op{idx} = {c} , subtotal: {x}");
 
             acc + x
         });
