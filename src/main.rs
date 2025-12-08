@@ -1,7 +1,3 @@
-use std::error::Error;
-use std::io::BufRead;
-use std::isize;
-
 use crate::io::input::*;
 use crate::io::output::*;
 use crate::io::string::str::StrReader;
@@ -15,132 +11,160 @@ mod io;
 
 fn main() {
     //let test = "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124";
-    let test = "..@@.@@@@.
-@@@.@.@.@@
-@@@@@.@.@@
-@.@@@@..@.
-@@.@@@@.@@
-.@@@@@@@.@
-.@.@.@.@@@
-@.@@@.@@@@
-.@@@@@@@@.
-@.@.@@@.@.";
+    let test = "123 328  51 64 
+    45 64  387 23 
+    6 98  215 314
+*   +   *   + ";
     //let mut input = io::input::Input::slice(test.as_bytes());
     let mut input = io::input::Input::stdin(); //slice(test.as_bytes());
     let mut output = io::output::Output::stdout();
 
     //solve_1(&mut input, &mut output); // 357
-    solve_1(&mut input, &mut output); // 3121910778619
+    solve_2(&mut input, &mut output); // 3121910778619
     output.flush();
 }
 
-struct NeighborIter<'a, T> {
-    graph: &'a Vec<Vec<T>>,
-    center: (isize, isize),
-    mode: isize,
+fn convert_line(line: String) -> Vec<i128> {
+    line.split_whitespace()
+        .map(|s| i128::from_str_radix(s, 10).unwrap())
+        .collect()
 }
 
-impl<'a, T> NeighborIter<'a, T> {
-    fn new(center: (usize, usize), graph: &'a Vec<Vec<T>>) -> NeighborIter<'a, T> {
-        NeighborIter {
-            graph,
-            center: (center.0 as isize, center.1 as isize),
-            mode: 0,
+fn convert_tline(line: Vec<String>) -> Vec<i128> {
+    let mut nums = vec![];
+
+    for dstr in line {
+        while nums.len() < dstr.len() {
+            nums.push(0);
+        }
+
+        for (idx, d) in dstr
+            .chars()
+            .map(|d| d.to_digit(10).unwrap() as i128)
+            .enumerate()
+        {
+            nums[idx] = nums[idx] * 10 + d;
         }
     }
+
+    nums
 }
 
-impl<T: Copy> Iterator for NeighborIter<'_, T> {
-    type Item = T;
+fn get_dpc(ops: &String) -> Vec<usize> {
+    let mut dpc = vec![];
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let max_y = self.graph.len();
-        let max_x = self.graph[0].len();
-
-        while self.mode < 9 {
-            if self.mode == 4 {
-                self.mode += 1;
+    let mut cur = ops.chars().rev();
+    let mut c_dpc = 0;
+    while let Some(c) = cur.next() {
+        c_dpc += 1;
+        match c {
+            '*' | '+' => {
+                dpc.push(c_dpc);
+                cur.next();
+                c_dpc = 0;
             }
-            let dx = (self.mode % 3) - 1;
-            let dy = (self.mode / 3) - 1;
-            self.mode += 1;
-
-            let (cy, cx) = self.center;
-            let (fy, fx) = (cy + dy, cx + dx);
-
-            if fx < max_x as isize && fy < max_y as isize && fx >= 0 && fy >= 0 {
-                return Some(
-                    *self
-                        .graph
-                        .get(fy as usize)
-                        .unwrap()
-                        .get(fx as usize)
-                        .unwrap(),
-                );
-            }
+            _ => {}
         }
-
-        None
     }
+
+    dpc.into_iter().rev().collect()
+}
+
+fn parse_nums(lines: Vec<String>, dpc: &Vec<usize>) -> Vec<Vec<i128>> {
+    let mut s = 0;
+    let mut e = 0;
+
+    for (idx, dc) in dpc.iter().enumerate() {
+        s = e;
+        e = s + dc;
+
+        println!("dp: {idx}");
+        lines.iter().enumerate().for_each(|(idx, l)| {
+            println!("slice[{s}..{e}], l.len = {}: {l}", l.len());
+            let tnum = &l.as_str()[s..e];
+            println!("line{idx}: {tnum}");
+        });
+
+        e += 1;
+    }
+
+    vec![]
+}
+
+fn solve_2(is: &mut Input, os: &mut Output) {
+    let mut lines = is.read_lines();
+    let ops_s = String::from_utf8(lines.pop().unwrap().to_vec()).unwrap();
+
+    let dpc = get_dpc(&ops_s);
+    println!("{dpc:?}");
+
+    let nums = parse_nums(
+        lines
+            .into_iter()
+            .map(|v| String::from_utf8(v.to_vec()).unwrap())
+            .collect(),
+        &dpc,
+    );
+
+    println!("{nums:?}");
+
+    let total = ops_s
+        .split_whitespace()
+        .enumerate()
+        .fold(0, |acc, (idx, c)| {
+            let mut x = nums[0][idx];
+            let op = match c.as_bytes().iter().next().unwrap() {
+                b'+' => |a, b| a + b,
+                b'*' => |a, b| a * b,
+                _ => unreachable!(),
+            };
+
+            for i in 1..nums.len() {
+                x = op(x, nums[i][idx]);
+            }
+            println!("Op{idx} = {c} , subtotal: {x}");
+
+            acc + x
+        });
+
+    os.print_line(total);
 }
 
 fn solve_1(is: &mut Input, os: &mut Output) {
-    let mut grid: Vec<Vec<u32>> = vec![];
+    let mut lines = is.read_lines();
+    let ops_s = String::from_utf8(lines.pop().unwrap().to_vec()).unwrap();
 
-    // build grid
-    loop {
-        let line = String::from_utf8(is.read_str().to_vec()).unwrap();
-        if line.is_empty() {
-            break;
-        }
+    let nums: Vec<Vec<i128>> = lines
+        .into_iter()
+        .map(|line| {
+            String::from_utf8(line.to_vec())
+                .unwrap()
+                .split_whitespace()
+                .map(|s| i128::from_str_radix(s, 10).unwrap())
+                .collect()
+        })
+        .collect();
 
-        let row = line
-            .chars()
-            .into_iter()
-            .map(|c| match c {
-                '.' => 0,
-                '@' => 1,
-                _ => 0,
-            })
-            .collect();
-        grid.push(row);
-    }
+    println!("{nums:?}");
 
-    let mut ocount = 0;
-    loop {
-        let mut count = 0;
-        let mut next_grid = vec![];
-        for y in 0..grid.len() {
-            next_grid.push(vec![]);
-            for x in 0..grid[y].len() {
-                let p = (y, x);
-                let mut ncount = 0;
-                if grid[y][x] == 0 {
-                    print!(".");
-                    next_grid[y].push(0);
-                    continue;
-                }
-                for val in NeighborIter::new(p, &grid) {
-                    ncount += val;
-                }
-                if ncount < 4 {
-                    print!("x");
-                    next_grid[y].push(0);
-                    count += 1;
-                } else {
-                    print!("@");
-                    next_grid[y].push(1);
-                }
+    let total = ops_s
+        .split_whitespace()
+        .enumerate()
+        .fold(0, |acc, (idx, c)| {
+            let mut x = nums[0][idx];
+            let op = match c.as_bytes().iter().next().unwrap() {
+                b'+' => |a, b| a + b,
+                b'*' => |a, b| a * b,
+                _ => unreachable!(),
+            };
+
+            for i in 1..nums.len() {
+                x = op(x, nums[i][idx]);
             }
-            println!();
-        }
-        println!();
-        grid = next_grid;
-        ocount += count;
-        if count == 0 {
-            break;
-        }
-    }
+            println!("Op{idx} = {c} , subtotal: {x}");
 
-    os.print_line(ocount);
+            acc + x
+        });
+
+    os.print_line(total);
 }
