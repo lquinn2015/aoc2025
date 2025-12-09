@@ -1,19 +1,9 @@
-use crate::io::input::*;
-use crate::io::output::*;
-use crate::io::string::str::StrReader;
+mod tests {
+    use crate::io;
 
-mod day0;
-mod day1;
-mod day2;
-mod day3;
-mod day4;
-mod day5;
-mod day6;
-mod io;
-
-fn main() {
-    //let test = "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124";
-    let test = ".......S.......
+    #[test]
+    fn test() {
+        let test = ".......S.......
 ...............
 .......^.......
 ...............
@@ -29,14 +19,33 @@ fn main() {
 ...............
 .^.^.^.^.^...^.
 ...............";
-    //let mut input = io::input::Input::slice(test.as_bytes());
-    let mut input = io::input::Input::stdin(); //slice(test.as_bytes());
-    let mut output = io::output::Output::stdout();
 
-    solve_2(&mut input, &mut output); // 357
-                                      //solve_2(&mut input, &mut output); // 3121910778619
-    output.flush();
+        let mut input = io::input::Input::slice(test.as_bytes());
+        let mut obuf: Vec<u8> = vec![];
+        let mut output = io::output::Output::buf(&mut obuf);
+        super::solve_1(&mut input, &mut output);
+        output.flush();
+
+        let mut input = io::input::Input::slice(&obuf);
+        let count = input.read_u64();
+        assert_eq!(21, count);
+
+        let mut input = io::input::Input::slice(test.as_bytes());
+        let mut obuf: Vec<u8> = vec![];
+        let mut output = io::output::Output::buf(&mut obuf);
+        super::solve_2(&mut input, &mut output);
+        output.flush();
+
+        let mut input = io::input::Input::slice(&obuf);
+
+        let count = input.read_u64();
+        assert_eq!(40, count);
+    }
 }
+
+use crate::io::input::*;
+use crate::io::output::*;
+use crate::io::string::str::StrReader;
 
 struct NeighborIter<'a, T> {
     graph: &'a Graph<T>,
