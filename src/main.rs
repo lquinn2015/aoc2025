@@ -13,22 +13,26 @@ mod io;
 
 fn main() {
     //let test = "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124";
-    let test = ".......S.......
-...............
-.......^.......
-...............
-......^.^......
-...............
-.....^.^.^.....
-...............
-....^.^...^....
-...............
-...^.^...^.^...
-...............
-..^...^.....^..
-...............
-.^.^.^.^.^...^.
-...............";
+    let test = "162,817,812
+57,618,57
+906,360,560
+592,479,940
+352,342,300
+466,668,158
+542,29,236
+431,825,988
+739,650,466
+52,470,668
+216,146,977
+819,987,18
+117,168,530
+805,96,715
+346,949,466
+970,615,88
+941,993,340
+862,61,35
+984,92,344
+425,690,689";
     //let mut input = io::input::Input::slice(test.as_bytes());
     let mut input = io::input::Input::stdin(); //slice(test.as_bytes());
     let mut output = io::output::Output::stdout();
@@ -38,224 +42,153 @@ fn main() {
     output.flush();
 }
 
-struct NeighborIter<'a, T> {
-    graph: &'a Graph<T>,
-    center: (isize, isize),
-    mode: isize,
+#[derive(Debug)]
+struct Node {
+    loc: (isize, isize, isize),
+    celf: usize,
+    adj: Vec<usize>,
 }
 
-struct Graph<T> {
-    graph: Vec<Vec<T>>,
+#[derive(Debug, Clone, Copy)]
+struct Edge {
+    src: usize,
+    dst: usize,
+    dist: usize,
 }
 
-impl<'a, T> NeighborIter<'a, T> {
-    fn new(center: (usize, usize), graph: &'a Graph<T>) -> NeighborIter<'a, T> {
-        NeighborIter {
-            graph,
-            center: (center.0 as isize, center.1 as isize),
-            mode: 0,
-        }
-    }
+fn dist(i: usize, j: usize, graph: &Vec<Node>) -> usize {
+    let a = &graph[i];
+    let b = &graph[j];
+    (isize::pow(a.loc.0 - b.loc.0, 2)
+        + isize::pow(a.loc.1 - b.loc.1, 2)
+        + isize::pow(a.loc.2 - b.loc.2, 2)) as usize
 }
 
-impl<T: Copy> Iterator for NeighborIter<'_, T> {
-    type Item = T;
+fn build_graph(is: &mut Input) -> (Vec<Node>, Vec<Edge>) {
+    let mut vertices: Vec<Node> = vec![];
+    let mut edges: Vec<Edge> = vec![];
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let max_y = self.graph.graph.len();
-        let max_x = self.graph.graph[0].len();
-
-        while self.mode < 9 {
-            if self.mode == 4 {
-                self.mode += 1;
-            }
-            let dx = (self.mode % 3) - 1;
-            let dy = (self.mode / 3) - 1;
-            self.mode += 1;
-
-            let (cy, cx) = self.center;
-            let (fy, fx) = (cy + dy, cx + dx);
-
-            if fx < max_x as isize && fy < max_y as isize && fx >= 0 && fy >= 0 {
-                return Some(
-                    *self
-                        .graph
-                        .graph
-                        .get(fy as usize)
-                        .unwrap()
-                        .get(fx as usize)
-                        .unwrap(),
-                );
-            }
+    loop {
+        let line = is.read_line();
+        if line.is_empty() {
+            break;
         }
 
-        None
+        let mut iter = line
+            .split(|&c| c == b',')
+            .map(|s| isize::from_str_radix(&String::from_utf8(s.to_vec()).unwrap(), 10).unwrap());
+        let loc = (
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+        );
+        let celf = vertices.len();
+        vertices.push(Node {
+            loc,
+            adj: vec![],
+            celf,
+        });
     }
-}
 
-#[derive(Copy, Clone)]
-enum Symbol {
-    Start,
-    Beam(u128),
-    Splitter,
-    Empty,
-}
+    let n = vertices.len();
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let src = i;
+            let dst = j;
+            let dist = dist(src, dst, &vertices);
 
-impl std::fmt::Display for Graph<Symbol> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in 0..self.graph.len() {
-            for col in 0..self.graph[0].len() {
-                let _ = match self.graph[row][col] {
-                    Symbol::Start => write!(f, "  S  "),
-                    Symbol::Beam(val) => {
-                        write!(f, "{val:^10}")
-                    }
-                    Symbol::Splitter => write!(f, "  ^  "),
-                    Symbol::Empty => write!(f, "  .  "),
-                };
-            }
-            let _ = writeln!(f, "");
+            edges.push(Edge { src, dst, dist });
+            //vertices[src].adj.push(dst);
+            //vertices[dst].adj.push(src);
         }
-
-        write!(f, "")
     }
+
+    edges.sort_by(|a, b| a.dist.cmp(&b.dist));
+
+    (vertices, edges)
 }
 
 fn solve_2(is: &mut Input, os: &mut Output) {
-    let mut graph: Vec<Vec<Symbol>> = vec![];
+    let (mut vertices, mut edges) = build_graph(is);
 
-    // build graph
-    loop {
-        let line = String::from_utf8(is.read_str().to_vec()).unwrap();
-        if line.is_empty() {
-            break;
+    let n = vertices.len();
+    println!("n  is {n}");
+
+    let mut v2c: Vec<usize> = vec![0; n];
+    let mut components: Vec<Vec<usize>> = vec![vec![]];
+    for e in edges.iter() {
+        if v2c[e.src] == 0 && v2c[e.dst] == 0 {
+            v2c[e.src] = components.len();
+            v2c[e.dst] = components.len();
+            components.push(vec![e.src, e.dst]);
+        } else if v2c[e.src] == 0 && v2c[e.dst] != 0 {
+            components[v2c[e.dst]].push(e.src);
+            v2c[e.src] = v2c[e.dst];
+        } else if v2c[e.src] != 0 && v2c[e.dst] == 0 {
+            components[v2c[e.src]].push(e.dst);
+            v2c[e.dst] = v2c[e.src];
+        } else if v2c[e.src] != v2c[e.dst] {
+            // both components must be merged
+            let merge_to = v2c[e.dst];
+
+            let merge_from: Vec<usize> = components[v2c[e.src]].iter().copied().collect();
+            components[v2c[e.src]] = vec![];
+            v2c[e.src] = merge_to;
+
+            for &v in merge_from.iter() {
+                components[merge_to].push(v);
+                v2c[v] = merge_to;
+            }
         }
 
-        let row = line
-            .chars()
-            .into_iter()
-            .map(|c| match c {
-                'S' => Symbol::Start,
-                '|' => Symbol::Beam(0),
-                '.' => Symbol::Empty,
-                '^' => Symbol::Splitter,
-                _ => unreachable!(),
-            })
-            .collect();
-        graph.push(row);
+        if components[v2c[e.src]].len() == n {
+            let total = vertices[e.src].loc.0 as usize * vertices[e.dst].loc.0 as usize;
+            println!(
+                "last edge {:?}, {:?},{:?}",
+                e, vertices[e.src], vertices[e.dst]
+            );
+            os.print_line(total);
+            println!("{v2c:?}");
+            return;
+        }
     }
-
-    let mut graph = Graph { graph };
-
-    for row in 0..(graph.graph.len() - 1) {
-        for col in 0..graph.graph[0].len() {
-            match graph.graph[row][col] {
-                Symbol::Beam(_) | Symbol::Start => match graph.graph[row + 1][col] {
-                    Symbol::Empty => {
-                        graph.graph[row + 1][col] = Symbol::Beam(1);
-                    }
-                    Symbol::Splitter => {
-                        graph.graph[row + 1][col - 1] = Symbol::Beam(1);
-                        graph.graph[row + 1][col + 1] = Symbol::Beam(1);
-                    }
-                    _ => {}
-                },
-                _ => {}
-            }
-        }
-    }
-    println!("{graph}");
-
-    let mut start_val = 0;
-    for row in (0..(graph.graph.len() - 1)).rev() {
-        println!("test?");
-        // beam prop
-        for col in 0..graph.graph[0].len() {
-            if let Symbol::Beam(_) = graph.graph[row][col] {
-                if let Symbol::Beam(lb) = graph.graph[row + 1][col] {
-                    graph.graph[row][col] = Symbol::Beam(lb);
-                }
-            }
-
-            if let Symbol::Start = graph.graph[row][col] {
-                if let Symbol::Beam(total) = graph.graph[row + 1][col] {
-                    start_val = total;
-                }
-            }
-        }
-
-        println!("{graph}");
-
-        // split converge
-        for col in 0..graph.graph[0].len() {
-            if let Symbol::Splitter = graph.graph[row][col] {
-                let left = if let Symbol::Beam(lb) = graph.graph[row][col - 1] {
-                    lb
-                } else {
-                    0
-                };
-                let right = if let Symbol::Beam(rb) = graph.graph[row][col + 1] {
-                    rb
-                } else {
-                    0
-                };
-                println!("hit at [{row}][{col}] = {left}+{right}={}", left + right);
-
-                graph.graph[row][col] = Symbol::Beam(left + right);
-            }
-        }
-        println!("{graph}");
-    }
-
-    os.print_line(start_val);
 }
 
 fn solve_1(is: &mut Input, os: &mut Output) {
-    let mut graph: Vec<Vec<Symbol>> = vec![];
+    let (mut vertices, mut edges) = build_graph(is);
+    //println!("{edges:?}");
+    //println!("v_count {n}, edges: {}", edges.len());
 
-    // build graph
-    loop {
-        let line = String::from_utf8(is.read_str().to_vec()).unwrap();
-        if line.is_empty() {
-            break;
-        }
+    let n = vertices.len();
+    edges.iter().take(1000).for_each(|e| {
+        vertices[e.src].adj.push(e.dst);
+        vertices[e.dst].adj.push(e.src);
+    });
 
-        let row = line
-            .chars()
-            .into_iter()
-            .map(|c| match c {
-                'S' => Symbol::Start,
-                '|' => Symbol::Beam(0),
-                '.' => Symbol::Empty,
-                '^' => Symbol::Splitter,
-                _ => unreachable!(),
-            })
-            .collect();
-        graph.push(row);
-    }
+    let mut components: Vec<Vec<usize>> = vec![];
+    let mut visited: Vec<bool> = vec![false; n];
 
-    let mut graph = Graph { graph };
+    for i in 0..n {
+        if !visited[i] {
+            let cid = components.len();
+            components.push(vec![i]);
 
-    let mut count = 0;
-    for row in 0..(graph.graph.len() - 1) {
-        for col in 0..graph.graph[0].len() {
-            match graph.graph[row][col] {
-                Symbol::Beam(_) | Symbol::Start => match graph.graph[row + 1][col] {
-                    Symbol::Empty => {
-                        graph.graph[row + 1][col] = Symbol::Beam(1);
+            let mut stack = vec![i];
+            while let Some(vert) = stack.pop() {
+                visited[i] = true;
+                for &dst in vertices[vert].adj.iter() {
+                    if !visited[dst] {
+                        stack.push(dst);
+                        components[cid].push(dst);
+                        visited[dst] = true;
                     }
-                    Symbol::Splitter => {
-                        count += 1;
-                        graph.graph[row + 1][col - 1] = Symbol::Beam(1);
-                        graph.graph[row + 1][col + 1] = Symbol::Beam(1);
-                    }
-                    _ => {}
-                },
-                _ => {}
+                }
             }
         }
-        println!("{graph}");
     }
 
-    os.print_line(count);
+    components.sort_by(|a, b| b.len().cmp(&a.len()));
+    let sz = components.iter().take(3).fold(1, |acc, c| c.len() * acc);
+    println!("components {:?}", components.iter().take(3));
+    os.print_line(sz);
 }
